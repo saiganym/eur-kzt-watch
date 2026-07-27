@@ -1,0 +1,12 @@
+{
+  "target_rate": 570,
+  "peak_window_days": 21,
+  "min_above_average_pct": 1.5,
+  "average_window_days": 30,
+  "floor_percentile": 55,
+  "floor_window_days": 90,
+  "ratchet_kzt": 3.0,
+  "repeat_after_days": 14,
+  "convert_by": null,
+  "min_history_days": 30
+}

@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#0E2430">
+<title>Euros to tenge</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght,SOFT,WONK@9..144,400..600,0..100,0..1&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+:root{
+  --ink:#0E2430; --ink-2:#16323F; --line:#24485A;
+  --gold:#E3B23C; --teal:#4FC3C0; --rose:#C4635F;
+  --text:#E9F1F4; --muted:#86A3B1;
+}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{
+  background:var(--ink); color:var(--text);
+  font:400 16px/1.5 "IBM Plex Sans",system-ui,sans-serif;
+  -webkit-font-smoothing:antialiased;
+  padding:clamp(28px,6vw,72px) clamp(20px,5vw,40px) 56px;
+}
+.wrap{max-width:720px;margin:0 auto}
+
+.eyebrow{
+  font:500 11px/1 "IBM Plex Mono",monospace;
+  letter-spacing:.18em;text-transform:uppercase;color:var(--muted);
+  margin:0 0 32px;
+}
+
+/* ---- the answer ---- */
+.answer{
+  font:600 clamp(56px,15vw,116px)/.92 "Fraunces",Georgia,serif;
+  font-variation-settings:"SOFT" 40,"WONK" 1;
+  letter-spacing:-.03em;margin:0;
+}
+.answer.yes{color:var(--gold)}
+.answer.no{color:var(--rose)}
+.because{
+  font:400 clamp(19px,4vw,25px)/1.35 "IBM Plex Sans",sans-serif;
+  margin:14px 0 0;max-width:22ch;
+}
+.gap{color:var(--muted);margin:10px 0 0;font-size:16px}
+.gap b{color:var(--text);font-weight:400;font-family:"IBM Plex Mono",monospace}
+
+hr{border:0;border-top:1px solid var(--line);margin:40px 0 32px}
+
+/* ---- today's number ---- */
+.today{display:flex;align-items:baseline;gap:12px;flex-wrap:wrap;margin:0 0 4px}
+.today .n{
+  font:500 clamp(40px,9vw,64px)/1 "IBM Plex Mono",monospace;
+  letter-spacing:-.035em;font-variant-numeric:tabular-nums;
+}
+.today .u{color:var(--muted);font-size:15px}
+.stamp{margin:6px 0 0;color:var(--muted);font-size:13px}
+
+/* ---- chart ---- */
+.chart-head{display:flex;justify-content:space-between;align-items:baseline;gap:16px;margin:36px 0 14px}
+h2{font:400 18px/1 "Fraunces",Georgia,serif;font-variation-settings:"SOFT" 40;margin:0}
+.ranges{display:flex;gap:6px}
+.ranges button{
+  font:400 12px/1 "IBM Plex Mono",monospace;color:var(--muted);
+  background:none;border:1px solid var(--line);border-radius:999px;
+  padding:7px 13px;cursor:pointer;transition:color .15s,background .15s,border-color .15s;
+}
+.ranges button:hover{color:var(--text)}
+.ranges button[aria-pressed="true"]{color:var(--ink);background:var(--teal);border-color:var(--teal)}
+.ranges button:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
+.chart-box{position:relative;height:300px}
+.key{margin:12px 0 0;font-size:13px;color:var(--muted)}
+.key i{display:inline-block;width:22px;border-top:2px dashed var(--gold);
+  vertical-align:middle;margin-right:6px}
+
+footer{margin-top:38px;padding-top:20px;border-top:1px solid var(--line);
+  color:var(--muted);font-size:13px}
+footer a{color:var(--teal)}
+.err{color:var(--rose)}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <p class="eyebrow">euros → tenge · mig.kz · Almaty</p>
+
+  <h1 class="answer" id="answer">…</h1>
+  <p class="because" id="because">Loading today's rate.</p>
+  <p class="gap" id="gap"></p>
+
+  <hr>
+
+  <div class="today">
+    <span class="n" id="rate">—</span>
+    <span class="u">tenge per euro today</span>
+  </div>
+  <p class="stamp" id="stamp"></p>
+
+  <div class="chart-head">
+    <h2>Every day up to today</h2>
+    <div class="ranges" role="group" aria-label="Time range">
+      <button data-days="30" aria-pressed="false">30d</button>
+      <button data-days="90" aria-pressed="true">90d</button>
+      <button data-days="400" aria-pressed="false">1y</button>
+    </div>
+  </div>
+  <div class="chart-box"><canvas id="chart"></canvas></div>
+  <p class="key"><i></i>Your 570 ₸ target</p>
+
+  <footer>
+    Checked three times a day. You get an email when it reaches 570 ₸, or if it
+    hits a high before then. Source: <a href="https://mig.kz/en">mig.kz</a>.
+  </footer>
+</div>
+
+<script>
+const $ = id => document.getElementById(id);
+const fmt = n => n.toLocaleString("en-US", {maximumFractionDigits:2});
+
+// Rate data is baked in by scripts/check_rate.py so this page works from
+// anywhere — GitHub Pages, a local file, an email attachment.
+const DATA = /*__DATA__*/null;
+
+let chart = null, DAYS = 90, TARGET = 570;
+
+function render(){
+  const cur = DATA.current;
+  TARGET = DATA.target || 570;
+  const buy = cur >= TARGET;
+
+  $("answer").textContent = buy ? "Yes" : "No";
+  $("answer").className = "answer " + (buy ? "yes" : "no");
+  $("because").textContent = buy
+    ? `The rate is at or above your ${fmt(TARGET)} ₸ target. Good day to change money.`
+    : `The rate is below your ${fmt(TARGET)} ₸ target. Wait if you can.`;
+  $("gap").innerHTML = buy
+    ? `<b>${fmt(cur - TARGET)} ₸</b> above target.`
+    : `<b>${fmt(TARGET - cur)} ₸</b> to go.`;
+
+  $("rate").textContent = fmt(cur);
+  $("rate").style.color = buy ? "var(--gold)" : "var(--text)";
+  $("stamp").textContent = DATA.board_time
+    ? "Board last changed " + DATA.board_time.replace("T", " ") + ", Almaty time."
+    : "";
+
+  drawChart();
+}
+
+function drawChart(){
+  if (typeof Chart === "undefined"){
+    document.querySelector(".chart-box").innerHTML =
+      '<p class="err" style="font-size:14px">The chart did not load. Reload the page.</p>';
+    return;
+  }
+  const s = DATA.series.slice(-DAYS);
+  const ctx = $("chart").getContext("2d");
+  const grad = ctx.createLinearGradient(0, 0, 0, 300);
+  grad.addColorStop(0, "rgba(79,195,192,.26)");
+  grad.addColorStop(1, "rgba(79,195,192,0)");
+
+  const last = s.length - 1;
+  chart?.destroy();
+  chart = new Chart(ctx, {
+    type: "line",
+    data: { labels: s.map(p => p.d), datasets: [
+      { data: s.map(p => p.c), borderColor: "#4FC3C0", borderWidth: 2,
+        backgroundColor: grad, fill: true, tension: .25,
+        pointRadius: c => c.dataIndex === last ? 5 : 0,
+        pointBackgroundColor: "#E9F1F4", pointBorderColor: "#0E2430", pointBorderWidth: 2,
+        pointHoverRadius: 5, pointHoverBackgroundColor: "#E3B23C" },
+      { data: s.map(() => TARGET), borderColor: "#E3B23C", borderWidth: 1.5,
+        borderDash: [5, 4], pointRadius: 0, fill: false, tension: 0 },
+    ]},
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      interaction: { mode: "index", intersect: false },
+      animation: { duration: matchMedia("(prefers-reduced-motion:reduce)").matches ? 0 : 600 },
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          filter: c => c.datasetIndex === 0,
+          backgroundColor: "#16323F", borderColor: "#24485A", borderWidth: 1,
+          titleColor: "#86A3B1", bodyColor: "#E9F1F4", padding: 10, displayColors: false,
+          titleFont: { family: "IBM Plex Mono", size: 11 },
+          bodyFont: { family: "IBM Plex Mono", size: 14 },
+          callbacks: { label: c => fmt(c.parsed.y) + " ₸ per €" },
+        },
+      },
+      scales: {
+        x: { grid: { display: false }, border: { color: "#24485A" },
+             ticks: { color: "#86A3B1", font: { family: "IBM Plex Mono", size: 10 },
+                      maxRotation: 0, autoSkipPadding: 32,
+                      callback(v){ const d = this.getLabelForValue(v);
+                        return DAYS > 120 ? d.slice(0, 7) : d.slice(5); } } },
+        y: { grid: { color: "rgba(36,72,90,.55)" }, border: { display: false },
+             ticks: { color: "#86A3B1", font: { family: "IBM Plex Mono", size: 10 },
+                      callback: v => v + " ₸" } },
+      },
+    },
+  });
+}
+
+document.querySelectorAll(".ranges button").forEach(b =>
+  b.addEventListener("click", () => {
+    DAYS = +b.dataset.days;
+    document.querySelectorAll(".ranges button")
+      .forEach(x => x.setAttribute("aria-pressed", x === b));
+    drawChart();
+  }));
+
+if (DATA && DATA.series && DATA.series.length) {
+  render();
+} else {
+  $("answer").textContent = "\u2014";
+  $("because").textContent = "No rate data yet. Run scripts/check_rate.py once, or wait for the next scheduled run.";
+  $("because").classList.add("err");
+}
+</script>
+</body>
+</html>
